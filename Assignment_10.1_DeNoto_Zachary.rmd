@@ -1,0 +1,349 @@
+---
+Assignment: "Assignment 10.1"
+author: "Zachary DeNoto"
+date: August 2 2019
+---
+
+Read and clean data
+```{r}
+
+library(caret)
+library(class)
+library(data.table)
+library(ggplot2)
+library(caTools)
+
+
+#reads in csv file
+cab <- read.csv('cab_ridesv2.csv')
+
+#changes data to data field
+cab$Date <- as.Date(cab$Date, format = '%m/%d/%Y')
+
+#looks at dataset structure
+str(cab)
+
+#scatterplot to show us distance vs price for all data
+ggplot(data = cab, aes(x = cab$distance, y = cab$price)) + geom_point() + 
+  ggtitle('Distance vs Price') + labs(x = 'Distance', y = 'Price')
+```
+
+
+Creates and plots smaller sample to better show scatterplot
+```{r}
+#grabs a random sample to look a less congested scatterplot
+cab1 <- data.table(cab)
+cab1 <- cab1[sample(.N, 1000)]
+
+#scatterplot of random sample to show us distance vs price better than previous scatterplot
+ggplot(data = cab1, aes(x= cab1$distance, y = cab1$price)) + geom_point() + geom_smooth(method = 'lm')  + ggtitle('Distance vs Price for Random Sample of 1000') + labs(x = 'Distance', y = 'Price')
+
+```
+
+
+Creating subsets of dataset
+```{r}
+#creates subset for Uber
+cab_uber <- cab[which(cab$cab_type =="Uber"),]
+
+#creates subset for Lyft
+cab_lyft <- cab[which(cab$cab_type =="Lyft"),]
+
+
+str(cab_uber)
+str(cab_lyft)
+  
+
+#grabs a random sample to look a less congested scatterplot
+uber1 <- data.table(cab_uber)
+uber1 <- uber1[sample(.N, 1000)]
+
+#grabs a random sample to look a less congested scatterplot
+lyft1 <- data.table(cab_lyft)
+lyft1 <- lyft1[sample(.N, 1000)]
+```
+
+
+Scatterplots of Uber and Lyft datasets
+```{r}
+#scatterplot of random sample to show us distance vs price better than previous scatterplot
+ggplot(data = uber1, aes(x= uber1$distance, y = uber1$price)) + geom_point() + geom_smooth(method = 'lm') + 
+  ggtitle('Uber Distance vs Price') + labs(x = 'Distance', y = 'Price')
+
+
+#scatterplot of random sample to show us distance vs price better than previous scatterplot
+ggplot(data = lyft1, aes(x= lyft1$distance, y = lyft1$price)) + geom_point() + geom_smooth(method = 'lm')+ 
+  ggtitle('Lyft Distance vs Price') + labs(x = 'Distance', y = 'Price')
+```
+
+
+Correlation tests for Uber and Lyft
+```{r}
+#testing correlation for price and distance
+
+cor(cab_uber$price, cab_uber$distance, method = 'spearman')
+
+cor(cab_lyft$price, cab_lyft$distance, method = 'spearman')
+```
+
+
+Using linear regression on Uber and Lyft
+```{r}
+#testing relationship between price and distance
+uber_pd <- lm(cab_uber$price ~ cab_uber$distance, data = cab_uber)
+
+lyft_pd <- lm(cab_lyft$price ~ cab_lyft$distance, data = cab_lyft)
+
+summary(uber_pd)
+summary(lyft_pd)
+```
+
+
+Making more subsets of Uber and Lyft data
+```{r}
+#segmenting uber and lyft into 4 categories for weekdays(M-F 7pm), weekends(Friday 8pm -Sunday), days(12am-7pm), and nights(8pm-12am)
+weekday_uber <-cab_uber[which(cab_uber$Day == "Monday" |cab_uber$Day == "Tuesday"|cab_uber$Day == "Wednesday" |cab_uber$Day == "Thursday"| (cab_uber$Day == "Friday" & cab_uber$Time <20)),]
+weekday_lyft <-cab_lyft[which(cab_lyft$Day == "Monday" |cab_lyft$Day == "Tuesday"|cab_lyft$Day == "Wednesday" |cab_lyft$Day == "Thursday"| (cab_lyft$Day == "Friday" & cab_lyft$Time <20)),]
+  
+weekend_uber <-cab_uber[which(cab_uber$Day == "Saturday" |cab_uber$Day == "Sunday"|(cab_uber$Day == "Friday" & cab_uber$Time > 19)),]
+weekend_lyft <-cab_lyft[which(cab_lyft$Day == "Saturday" |cab_lyft$Day == "Sunday"|(cab_lyft$Day == "Friday" & cab_lyft$Time > 19)),]
+  
+  
+day_uber <- cab_uber[which(cab_uber$Time < 20),]
+day_lyft <- cab_lyft[which(cab_lyft$Time < 20),]
+  
+night_uber <- cab_uber[which(cab_uber$Time > 19),]
+night_lyft <- cab_lyft[which(cab_lyft$Time > 19),]
+```
+
+
+Using linear and multiple linear regression to test out differences
+```{r}
+#testing relationship between price and distance for weekdays
+uber_wkday <- lm(weekday_uber$price ~ weekday_uber$distance, data = weekday_uber)
+lyft_wkday <- lm(weekday_lyft$price ~ weekday_lyft$distance, data = weekday_lyft)
+
+summary(uber_wkday)
+summary(lyft_wkday)
+
+#testing relationship between price and distance for weekends
+uber_wkend <- lm(weekend_uber$price ~ weekend_uber$distance, data = weekend_uber)
+lyft_wkend <- lm(weekend_lyft$price ~ weekend_lyft$distance, data = weekend_lyft)
+
+summary(uber_wkend)
+summary(lyft_wkend)
+
+#testing relationship between price and distance for day time
+uber_daytime <- lm(day_uber$price ~ day_uber$distance, data = day_uber)
+lyft_daytime <- lm(day_lyft$price ~ day_lyft$distance, data = day_lyft)
+
+summary(uber_daytime)
+summary(lyft_daytime)
+
+#testing relationship between price and distance for night time
+uber_nightime <- lm(night_uber$price ~ night_uber$distance, data = night_uber)
+lyft_nightime <- lm(night_lyft$price ~ night_lyft$distance,   data = night_lyft)
+
+summary(uber_nightime)
+summary(lyft_nightime)
+```
+
+
+Using multiple linear regression to test out differences
+```{r}
+#testing relationship between price, distance and type of ride for weekdays
+uber_wkday <- lm(weekday_uber$price ~ weekday_uber$distance + factor(weekday_uber$name), data = weekday_uber)
+lyft_wkday <- lm(weekday_lyft$price ~ weekday_lyft$distance + factor(weekday_lyft$name), data = weekday_lyft)
+
+summary(uber_wkday)
+summary(lyft_wkday)
+
+#testing relationship between price, distance and type of ride  for weekends
+uber_wkend <- lm(weekend_uber$price ~ weekend_uber$distance + factor(weekend_uber$name) , data = weekend_uber)
+lyft_wkend <- lm(weekend_lyft$price ~ weekend_lyft$distance + factor(weekend_lyft$name) , data = weekend_lyft)
+
+summary(uber_wkend)
+summary(lyft_wkend)
+
+#testing relationship between price, distance and type of ride  for day time
+uber_daytime <- lm(day_uber$price ~ day_uber$distance + factor(day_uber$name) , data = day_uber)
+lyft_daytime <- lm(day_lyft$price ~ day_lyft$distance + factor(day_lyft$name)  ,data = day_lyft)
+
+summary(uber_daytime)
+summary(lyft_daytime)
+
+#testing relationship between price, distance and type of ride for night time
+uber_nightime <- lm(night_uber$price ~ night_uber$distance + factor(night_uber$name), data = night_uber)
+lyft_nightime <- lm(night_lyft$price ~ night_lyft$distance + factor(night_lyft$name),   data = night_lyft)
+
+summary(uber_nightime)
+summary(lyft_nightime)
+
+
+
+
+#testing relationship between price, distance and type of ride for weekdays
+
+summary(lm(weekday_uber$price ~ weekday_uber$distance + factor(weekday_uber$name)+ weekday_uber$surge_multiplier, data = weekday_uber))
+summary(lm(weekday_lyft$price ~ weekday_lyft$distance + factor(weekday_lyft$name)+ weekday_lyft$surge_multiplier, data = weekday_lyft))
+
+#testing relationship between price, distance and type of ride  for weekends
+
+summary(lm(weekend_uber$price ~ weekend_uber$distance + factor(weekend_uber$name)+ weekend_uber$surge_multiplier , data = weekend_uber))
+summary(lm(weekend_lyft$price ~ weekend_lyft$distance + factor(weekend_lyft$name)+ weekend_lyft$surge_multiplier , data = weekend_lyft))
+
+#testing relationship between price, distance and type of ride  for day time
+
+summary(lm(day_uber$price ~ day_uber$distance + factor(day_uber$name)+ day_uber$surge_multiplier , data = day_uber))
+summary(lm(day_lyft$price ~ day_lyft$distance + factor(day_lyft$name)+ day_lyft$surge_multiplier  ,data = day_lyft))
+
+#testing relationship between price, distance and type of ride for night time
+
+summary(lm(night_uber$price ~ night_uber$distance + factor(night_uber$name)+ night_uber$surge_multiplier, data = night_uber))
+summary(lm(night_lyft$price ~ night_lyft$distance+ factor(night_lyft$name)+ night_lyft$surge_multiplier,   data = night_lyft))
+```
+
+
+Plots surges for Lyft 
+```{r}
+#shows when surges occur for lyft
+ggplot(data = cab_lyft, aes(x = cab_lyft$Time, y = cab_lyft$surge_multiplier)) + geom_point() + 
+  ggtitle('Lyft Time vs Surge') + labs(x = 'Time', y = 'Surge Multiplier')
+
+
+#shows when surges occur on weekends for lyft
+ggplot(data = weekend_lyft, aes(x = weekend_lyft$Time, y = weekend_lyft$surge_multiplier)) + geom_point()+ 
+  ggtitle('Lyft Time vs Surge for Weekends') + labs(x = 'Time', y = 'Surge Multiplier')
+
+#shows when surges occur on weekdays for lyft
+ggplot(data = weekday_lyft, aes(x = weekday_lyft$Time, y = weekday_lyft$surge_multiplier)) + geom_point()+ 
+  ggtitle('Lyft Time vs Surge for Weekdays') + labs(x = 'Time', y = 'Surge Multiplier')
+```
+
+
+Creating subsets of Uber and Lyft by day of the week
+```{r}
+#creates a Monday subset for lyft
+mon_lyft <- cab_lyft[which(cab_lyft$Day =="Monday"),]
+#creates a Tuesday subset for lyft
+tues_lyft <- cab_lyft[which(cab_lyft$Day =="Tuesday"),]
+#creates a Wednesday subset for lyft
+wed_lyft <- cab_lyft[which(cab_lyft$Day =="Wednesday"),]
+#creates a Thursday subset for lyft
+thur_lyft <- cab_lyft[which(cab_lyft$Day =="Thursday"),]
+#creates a Friday subset for lyft
+fri_lyft <- cab_lyft[which(cab_lyft$Day =="Friday"),]
+#creates a Saturday subset for lyft
+sat_lyft <- cab_lyft[which(cab_lyft$Day =="Saturday"),]
+#creates a Sunday subset for lyft
+sun_lyft <- cab_lyft[which(cab_lyft$Day =="Sunday"),]
+```
+
+
+Plotting surges for Lyft by day of the week
+```{r}
+#shows when surges occur on Monday for lyft
+ggplot(data = mon_lyft, aes(x = mon_lyft$Time, y = mon_lyft$surge_multiplier)) + geom_point() + 
+  ggtitle('Lyft Time vs Surge for Monday') + labs(x = 'Time', y = 'Surge Multiplier')
+
+#shows when surges occur on Tuesday for lyft
+ggplot(data = tues_lyft, aes(x = tues_lyft$Time, y = tues_lyft$surge_multiplier)) + geom_point()+ 
+  ggtitle('Lyft Time vs Surge for Tuesday') + labs(x = 'Time', y = 'Surge Multiplier')
+
+#shows when surges occur on Wednesday for lyft
+ggplot(data = wed_lyft, aes(x = wed_lyft$Time, y = wed_lyft$surge_multiplier)) + geom_point()+ 
+  ggtitle('Lyft Time vs Surge for Wednesday') + labs(x = 'Time', y = 'Surge Multiplier')
+
+#shows when surges occur on Thursday for lyft
+ggplot(data = thur_lyft, aes(x = thur_lyft$Time, y = thur_lyft$surge_multiplier)) + geom_point()+ 
+  ggtitle('Lyft Time vs Surge for Thursday') + labs(x = 'Time', y = 'Surge Multiplier')
+
+#shows when surges occur on Friday for lyft
+ggplot(data = fri_lyft, aes(x = fri_lyft$Time, y = fri_lyft$surge_multiplier)) + geom_point()+ 
+  ggtitle('Lyft Time vs Surge for Friday') + labs(x = 'Time', y = 'Surge Multiplier')
+
+#shows when surges occur on Saturday for lyft
+ggplot(data = sat_lyft, aes(x = sat_lyft$Time, y = sat_lyft$surge_multiplier)) + geom_point()+ 
+  ggtitle('Lyft Time vs Surge for Saturday') + labs(x = 'Time', y = 'Surge Multiplier')
+
+#shows when surges occur on Sunday for lyft
+ggplot(data = sun_lyft, aes(x = sun_lyft$Time, y = sun_lyft$surge_multiplier)) + geom_point()+ 
+  ggtitle('Lyft Time vs Surge for Sunday') + labs(x = 'Time', y = 'Surge Multiplier')
+
+```
+
+
+Plotting Price and Date for Uber and Lyft
+```{r}
+
+#plots price and date for uber
+ggplot(cab_uber, aes(x = cab_uber$Date, y = cab_uber$price)) +
+  geom_point() + ggtitle('Date vs Price for Uber') + labs(x = 'Date', y = 'Price')
+
+
+#plots price and date for lyft
+ggplot(cab_lyft, aes(x = cab_lyft$Date, y = cab_lyft$price)) +
+  geom_point() + ggtitle('Date vs Price for Lyft') + labs(x = 'Date', y = 'Price')
+
+
+```
+
+
+Predictions
+```{r}
+split <- sample.split(cab, SplitRatio = 0.8)
+split
+
+train <- subset(cab, split == "Uber")
+test <- subset(cab, split == "Lyft")
+
+
+u_or_l <- glm(cab$cab_type ~ cab$price + cab$name + cab$Time + cab$distance, data = cab, family = 'binomial')
+
+summary(u_or_l)
+
+
+anova(u_or_l,test="Chisq")
+
+res <- predict(u_or_l, test, type = 'response')
+res
+
+
+res <- predict(u_or_l, train, type = 'response')
+res
+
+confmatrix <- table(Actual_value = cab$cab_type, Predicted_value = res > 0.5)
+confmatrix
+
+confmatrix[[1,1]] /sum(confmatrix)
+
+
+```
+
+
+Do not run this...it will crash the program. It was an attempt to use k-nearest neighbor on dataset
+```{r}
+#ccab <- read.csv('cab_ridesv3.csv')
+
+# 
+# dat.d <- sample(1:nrow(ccab),size=nrow(ccab)*0.7,replace = FALSE) #random selection of 70% data.
+# 
+# train2 <- ccab[dat.d,] # 70% training data
+# test2 <- ccab[-dat.d,] # remaining 30% test data
+# 
+# bin_train_labels <- ccab[dat.d,1]
+# bin_test_labels <-ccab[-dat.d,1]
+# 
+# 
+# bin_test <- knn(train = train2, test = test2,cl = bin_train_labels, k=100)
+# 
+# CrossTable(x = bin_test_labels, y = bin_test, prop.chisq = FALSE)
+
+
+```
+
+
+
+
+
+
